@@ -706,6 +706,32 @@ The **file.follow** method will call `fn(line)` for any new `line` that is added
 file.follow('/home/bob/.bash_history', print)
 ```
 
+### file.get_times
+
+`file.get_times(path: str) -> Dict`
+
+The **file.get_times** method gets all important times of a file.
+
+On both **Windows** and **Unix**, accessed, created, and modified times are returned. On **Unix**, the changed time is also returned.
+
+These times are returned as an integer epoch (SECONDS), as in the number of seconds that elapsed from **Jan 1 1970**
+
+Example, with **1781444321** being the unix epoch for **Sunday, June 14, 2026 at 1:38:41 PM UTC**:
+
+```python
+file.mkdir("./testdir")
+print(file.get_times("./file"))
+```
+
+```json
+{
+    "atime": 1781444321,
+    "crtime": 1781444321,
+    "ctime": 1781444321,
+    "mtime": 1781444321
+}
+```
+
 ### file.is_dir
 
 `file.is_dir(path: str) -> bool`

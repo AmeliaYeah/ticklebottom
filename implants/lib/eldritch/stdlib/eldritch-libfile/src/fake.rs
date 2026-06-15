@@ -152,6 +152,24 @@ impl FileLibrary for FileLibraryFake {
         Ok(())
     }
 
+    fn get_times(&self, path: String) -> Result<BTreeMap<String, i64>, String> {
+        // ensure file existence
+        if !self.exists(path) {
+            return Err("File doesn't exist".to_string());
+        }
+
+        // create btree
+        let mut map = BTreeMap::new();
+        map.insert("mtime".to_string(), 0);
+        map.insert("atime".to_string(), 0);
+        map.insert("crtime".to_string(), 0);
+
+        #[cfg(unix)]
+        map.insert("ctime".to_string(), 0);
+        
+        Ok(map)
+    }
+
     fn is_dir(&self, path: String) -> Result<bool, String> {
         let mut root = self.root.lock();
         let parts = Self::normalize_path(&path);
