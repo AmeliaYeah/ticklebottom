@@ -16,6 +16,8 @@ use nix::unistd::{Gid, Group, Uid, User};
 use std::fs;
 #[cfg(feature = "stdlib")]
 use std::path::Path;
+#[cfg(feature = "stdlib")]
+use std::time::UNIX_EPOCH;
 
 #[cfg(feature = "stdlib")]
 pub fn list(path: Option<String>) -> Result<Vec<BTreeMap<String, Value>>, String> {
@@ -53,20 +55,55 @@ fn list_impl(path: String) -> AnyhowResult<Vec<BTreeMap<String, Value>>> {
     for entry in glob(&path)? {
         match entry {
             Ok(path_buf) => {
-                // If I implement `handle_list` roughly:
+                // show information for the file
+                // if it's a directory, show information of the directory being listed from
+                final_res.push(create_dict_from_file(&path_buf)?);
+
+                // if it is a directory, also add it's subcontents
                 if path_buf.is_dir() {
                     for entry in fs::read_dir(&path_buf)? {
                         let entry = entry?;
                         final_res.push(create_dict_from_file(&entry.path())?);
                     }
-                } else {
-                    final_res.push(create_dict_from_file(&path_buf)?);
                 }
             }
             Err(e) => eprintln!("Glob error: {e:?}"),
         }
     }
     Ok(final_res)
+}
+
+// get the timestamps of a metadata object and return it as a dictionary
+#[cfg(feature = "stdlib")]
+fn get_times_dict(metadata: std::fs::Metadata) -> Value {
+    // create dictionary for times data
+    let mut times: BTreeMap<Value, Value> = BTreeMap::new();
+
+    // add changed time (it's already in epoch format) if we're in unix
+    #[cfg(unix)] {
+        use std::os::unix::fs::MetadataExt;
+        times.insert(Value::String("ctime".to_string()), Value::Int(metadata.ctime()));
+    }
+
+    // add time information
+    let timestamps = [
+        ("mtime", metadata.modified()),
+        ("crtime", metadata.created()),
+        ("atime", metadata.accessed())
+    ];
+    for timestamp_req in timestamps {
+        // if getting the timestamp was successful, add it
+        if let Ok(timestamp) = timestamp_req.1 {
+            // check if the duration since epoch is valid
+            // if it is, cast it as i64 seconds and add it to the dict
+            if let Ok(epoch_secs) = timestamp.duration_since(UNIX_EPOCH) {
+                times.insert(Value::String(timestamp_req.0.to_string()), Value::Int(epoch_secs.as_secs().cast_signed()));
+            }
+        }
+    };
+
+    // insert times section to the dictionary
+    return Value::Dictionary(alloc::sync::Arc::new(spin::RwLock::new(times)));
 }
 
 #[cfg(feature = "stdlib")]
@@ -137,12 +174,8 @@ fn create_dict_from_file(path: &Path) -> AnyhowResult<BTreeMap<String, Value>> {
         Value::String(abs_path.to_string_lossy().to_string()),
     );
 
-    // Times
-    if let Ok(modified) = metadata.modified() {
-        let dt: chrono::DateTime<chrono::Utc> = modified.into();
-        let formatted = dt.format("%Y-%m-%d %H:%M:%S UTC").to_string();
-        dict.insert("modified".to_string(), Value::String(formatted));
-    }
+    // Add Time information
+    dict.insert("times".to_string(), get_times_dict(metadata));
 
     Ok(dict)
 }
@@ -166,7 +199,7 @@ mod tests {
         assert!(f.contains_key("owner"));
         assert!(f.contains_key("group"));
         assert!(f.contains_key("absolute_path"));
-        assert!(f.contains_key("modified"));
+        assert!(f.contains_key("times"));
 
         // Check absolute_path
         if let Value::String(abs) = &f["absolute_path"] {
@@ -177,16 +210,16 @@ mod tests {
         }
 
         // Check modified time format
-        if let Value::String(mod_time) = &f["modified"] {
-            // Check format YYYY-MM-DD HH:MM:SS UTC
-            let re = Regex::new(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$").unwrap();
-            assert!(
-                re.is_match(mod_time.as_bytes()),
-                "Timestamp format mismatch: {}",
-                mod_time
-            );
-        } else {
-            panic!("modified is not a string");
-        }
+        // if let Value::String(mod_time) = &f["modified"] {
+        //     // Check format YYYY-MM-DD HH:MM:SS UTC
+        //     let re = Regex::new(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$").unwrap();
+        //     assert!(
+        //         re.is_match(mod_time.as_bytes()),
+        //         "Timestamp format mismatch: {}",
+        //         mod_time
+        //     );
+        // } else {
+        //     panic!("modified is not a string");
+        // }
     }
 }

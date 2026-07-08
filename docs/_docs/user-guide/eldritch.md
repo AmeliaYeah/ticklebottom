@@ -706,32 +706,6 @@ The **file.follow** method will call `fn(line)` for any new `line` that is added
 file.follow('/home/bob/.bash_history', print)
 ```
 
-### file.get_times
-
-`file.get_times(path: str) -> Dict`
-
-The **file.get_times** method gets all timestamp metadata of a file/directory.
-
-On *Windows/Unix*, the **Created, Accessed, Modified** times are returned. On *Unix* targets specifically, the **Changed** time is also returned.
-
-These times are returned as an integer epoch (SECONDS), as in the number of seconds that elapsed from **Jan 1 1970**
-
-Example, with **1781444321** being the unix epoch for **Sunday, June 14, 2026 at 1:38:41 PM UTC**:
-
-```python
-file.mkdir("./testdir")
-print(file.get_times("./file"))
-```
-
-```json
-{
-    "atime": 1781444321,
-    "crtime": 1781444321,
-    "ctime": 1781444321,
-    "mtime": 1781444321
-}
-```
-
 ### file.is_dir
 
 `file.is_dir(path: str) -> bool`
@@ -758,40 +732,59 @@ file.list("\\\\127.0.0.1\\c$\\Windows\\*.yml") # List files over UNC paths
 ```
 
 Each file is represented by a Dict type.
-Here is an example of the Dict layout:
+Here is an example code snippet using **file.list**:
+
+```python
+print(file.list("/root/some_directory"))
+```
 
 ```json
 [
-    {
-        "file_name": "implants",
-        "absolute_path": "/workspace/realm/implants",
-        "size": 4096,
-        "owner": "root",
-        "group": "0",
-        "permissions": "40755",
-        "modified": "2023-07-09 01:35:40 UTC",
-        "type": "Directory"
+  {
+    "absolute_path": "/root/some_directory", // when listing a directory, it will show the directory itself aswell
+    "file_name": "some_directory",
+    "group": "root",
+    "owner": "root",
+    "permissions": "40775",
+    "size": 4096,
+    "times": { // the timestamps given are provided as seconds past the epoch (Jan 1 1970)
+      "atime": 1783528762, // accessed time
+      "crtime": 1783526598, // creation time
+      "ctime": 1783528762, // changed time (only available on UNIX systems)
+      "mtime": 1783528762 // modified time
     },
-    {
-        "file_name": "README.md",
-        "absolute_path": "/workspace/realm/README.md",
-        "size": 750,
-        "owner": "root",
-        "group": "0",
-        "permissions": "100644",
-        "modified": "2023-07-08 02:49:47 UTC",
-        "type": "File"
+    "type": "dir"
+  },
+  {
+    "absolute_path": "/root/some_directory/some_file",
+    "file_name": "some_file",
+    "group": "root",
+    "owner": "root",
+    "permissions": "40775",
+    "size": 4096,
+    "times": {
+      "atime": 1783526640,
+      "crtime": 1783526598,
+      "ctime": 1783526598,
+      "mtime": 1783526598
     },
-    {
-        "file_name": ".git",
-        "absolute_path": "/workspace/realm/.git",
-        "size": 4096,
-        "owner": "root",
-        "group": "0",
-        "permissions": "40755",
-        "modified": "2023-07-10 21:14:06 UTC",
-        "type": "Directory"
-    }
+    "type": "file"
+  },
+  {
+    "absolute_path": "/root/some_directory/some_other_directory",
+    "file_name": "some_other_directory",
+    "group": "root",
+    "owner": "root",
+    "permissions": "40775",
+    "size": 4096,
+    "times": {
+      "atime": 1783526640,
+      "crtime": 1783526598,
+      "ctime": 1783526598,
+      "mtime": 1783526598
+    },
+    "type": "dir"
+  }
 ]
 ```
 
