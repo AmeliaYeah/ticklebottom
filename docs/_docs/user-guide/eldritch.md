@@ -732,58 +732,61 @@ file.list("\\\\127.0.0.1\\c$\\Windows\\*.yml") # List files over UNC paths
 ```
 
 Each file is represented by a Dict type.
-Here is an example code snippet using **file.list**:
+Here is an example code snippet along with it's output:
 
 ```python
-print(file.list("/root/some_directory"))
+print(file.list("/some_directory"))
 ```
 
 ```json
 [
   {
-    "absolute_path": "/root/some_directory", // when listing a directory, it will show the directory itself aswell
+    "absolute_path": "/some_directory",
     "file_name": "some_directory",
     "group": "root",
+    "modified": "2026-07-09 18:24:44 UTC", // modification time represented as a UTC string
     "owner": "root",
     "permissions": "40775",
     "size": 4096,
-    "times": { // the timestamps given are provided as seconds past the epoch (Jan 1 1970)
-      "atime": 1783528762, // accessed time
-      "crtime": 1783526598, // creation time
-      "ctime": 1783528762, // changed time (only available on UNIX systems)
-      "mtime": 1783528762 // modified time
+    "times": { // these are all the timestamps represented as UNIX epoch (seconds elapsed since Jan 1 1970)
+      "accessed": 1783621485,
+      "changed": 1783621484, // CHANGED TIME IS ONLY SUPPORTED IN UNIX SYSTEMS!
+      "created": 1783621124,
+      "modified": 1783621484
     },
     "type": "dir"
   },
   {
-    "absolute_path": "/root/some_directory/some_file",
-    "file_name": "some_file",
-    "group": "root",
-    "owner": "root",
-    "permissions": "40775",
-    "size": 4096,
-    "times": {
-      "atime": 1783526640,
-      "crtime": 1783526598,
-      "ctime": 1783526598,
-      "mtime": 1783526598
-    },
-    "type": "file"
-  },
-  {
-    "absolute_path": "/root/some_directory/some_other_directory",
+    "absolute_path": "/some_directory/some_other_directory",
     "file_name": "some_other_directory",
     "group": "root",
+    "modified": "2026-07-09 18:18:47 UTC",
     "owner": "root",
     "permissions": "40775",
     "size": 4096,
     "times": {
-      "atime": 1783526640,
-      "crtime": 1783526598,
-      "ctime": 1783526598,
-      "mtime": 1783526598
+      "accessed": 1783621155,
+      "changed": 1783621127,
+      "created": 1783621127,
+      "modified": 1783621127
     },
     "type": "dir"
+  },
+  {
+    "absolute_path": "/some_directory/some_file",
+    "file_name": "some_file",
+    "group": "root",
+    "modified": "2026-07-09 18:18:50 UTC",
+    "owner": "root",
+    "permissions": "100664",
+    "size": 0,
+    "times": {
+      "accessed": 1783621130,
+      "changed": 1783621130,
+      "created": 1783621130,
+      "modified": 1783621130
+    },
+    "type": "file"
   }
 ]
 ```
