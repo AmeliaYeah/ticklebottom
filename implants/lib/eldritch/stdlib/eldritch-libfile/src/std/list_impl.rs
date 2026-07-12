@@ -17,10 +17,14 @@ use std::fs;
 #[cfg(feature = "stdlib")]
 use std::path::Path;
 #[cfg(feature = "stdlib")]
+use std::sync::Arc;
+#[cfg(feature="stdlib")]
+use spin::RwLock;
+#[cfg(feature = "stdlib")]
 use std::time::UNIX_EPOCH;
 
 #[cfg(feature = "stdlib")]
-pub fn list(path: Option<String>) -> Result<Vec<BTreeMap<String, Value>>, String> {
+pub fn list(path: Option<String>, dir_self: Option<bool>) -> Result<Vec<BTreeMap<String, Value>>, String> {
     let path = path.unwrap_or_else(|| {
         ::std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
@@ -32,12 +36,13 @@ pub fn list(path: Option<String>) -> Result<Vec<BTreeMap<String, Value>>, String
                 }
             })
     });
-    list_impl(path).map_err(|e| e.to_string())
+    list_impl(path, dir_self.unwrap_or(false)).map_err(|e| e.to_string())
 }
 
 #[cfg(not(feature = "stdlib"))]
 pub fn list(
     _path: Option<alloc::string::String>,
+    dir_self: Option<bool>
 ) -> Result<
     alloc::vec::Vec<alloc::collections::BTreeMap<alloc::string::String, eldritch_core::Value>>,
     alloc::string::String,
@@ -46,7 +51,7 @@ pub fn list(
 }
 
 #[cfg(feature = "stdlib")]
-fn list_impl(path: String) -> AnyhowResult<Vec<BTreeMap<String, Value>>> {
+fn list_impl(path: String, dir_self: bool) -> AnyhowResult<Vec<BTreeMap<String, Value>>> {
     use glob::glob;
 
     let mut final_res = Vec::new();
@@ -55,11 +60,14 @@ fn list_impl(path: String) -> AnyhowResult<Vec<BTreeMap<String, Value>>> {
     for entry in glob(&path)? {
         match entry {
             Ok(path_buf) => {
-                // show information for the file
-                // if it's a directory, show information of the directory being listed from
-                final_res.push(create_dict_from_file(&path_buf)?);
-
-                // if it is a directory, also add it's subcontents
+                // if we're not a directory (file), show self
+                // OR
+                // if we are a directory, only show self if the flag is set to true
+                if !path_buf.is_dir() || dir_self {
+                    final_res.push(create_dict_from_file(&path_buf)?);
+                }
+                
+                // for dir, show subcontents
                 if path_buf.is_dir() {
                     for entry in fs::read_dir(&path_buf)? {
                         let entry = entry?;
@@ -70,12 +78,15 @@ fn list_impl(path: String) -> AnyhowResult<Vec<BTreeMap<String, Value>>> {
             Err(e) => eprintln!("Glob error: {e:?}"),
         }
     }
+
+    // sort by absolute_path
+    final_res.sort_by_key(|k| k.get("absolute_path").cloned());
     Ok(final_res)
 }
 
 // get the timestamps of a metadata object and return it as a dictionary
 #[cfg(feature = "stdlib")]
-fn get_times_dict(metadata: std::fs::Metadata) -> Value {
+fn get_times_dict(metadata: std::fs::Metadata, mtime: std::io::Result<std::time::SystemTime>) -> Value {
     // create dictionary for times data
     let mut times: BTreeMap<Value, Value> = BTreeMap::new();
 
@@ -87,23 +98,26 @@ fn get_times_dict(metadata: std::fs::Metadata) -> Value {
 
     // add time information
     let timestamps = [
-        ("modified", metadata.modified()),
+        ("modified", mtime),
         ("created", metadata.created()),
         ("accessed", metadata.accessed())
     ];
     for timestamp_req in timestamps {
         // if getting the timestamp was successful, add it
         if let Ok(timestamp) = timestamp_req.1 {
-            // check if the duration since epoch is valid
-            // if it is, cast it as i64 seconds and add it to the dict
-            if let Ok(epoch_secs) = timestamp.duration_since(UNIX_EPOCH) {
-                times.insert(Value::String(timestamp_req.0.to_string()), Value::Int(epoch_secs.as_secs().cast_signed()));
-            }
+            // convert timestamp to epoch
+            let secs = match timestamp.duration_since(UNIX_EPOCH) {
+                Ok(duration) => duration.as_secs() as i64,
+                Err(err) => -(err.duration().as_secs() as i64)
+            };
+
+            // add timestamp to dict
+            times.insert(Value::String(timestamp_req.0.to_string()), Value::Int(secs));
         }
     };
 
     // insert times section to the dictionary
-    return Value::Dictionary(alloc::sync::Arc::new(spin::RwLock::new(times)));
+    return Value::Dictionary(Arc::new(RwLock::new(times)));
 }
 
 #[cfg(feature = "stdlib")]
@@ -174,15 +188,18 @@ fn create_dict_from_file(path: &Path) -> AnyhowResult<BTreeMap<String, Value>> {
         Value::String(abs_path.to_string_lossy().to_string()),
     );
 
-    // Keep original modified time for backwards compatability prior to epoch addition
-    if let Ok(modified) = metadata.modified() {
+    // cache modified time, then add it to both epoch and as a stringified version
+    let mtime = metadata.modified();
+
+    // turn modified time into a stringified version
+    if let Ok(modified) = mtime {
         let dt: chrono::DateTime<chrono::Utc> = modified.into();
         let formatted = dt.format("%Y-%m-%d %H:%M:%S UTC").to_string();
         dict.insert("modified".to_string(), Value::String(formatted));
     }
 
     // Add Time information
-    dict.insert("times".to_string(), get_times_dict(metadata));
+    dict.insert("times".to_string(), get_times_dict(metadata, mtime));
 
     Ok(dict)
 }
@@ -195,11 +212,19 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[test]
+    fn test_list_includes_self_when_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.txt"), b"hi").unwrap();
+        let files = list(Some(dir.path().to_string_lossy().to_string()), Some(true)).unwrap();
+        assert!(files.len() >= 2); // self + child
+    }
+
+    #[test]
     fn test_list_owner_group() {
         let tmp = NamedTempFile::new().unwrap();
         let path = tmp.path().to_string_lossy().to_string();
 
-        let files = list(Some(path)).unwrap();
+        let files = list(Some(path), None).unwrap();
         assert_eq!(files.len(), 1);
         let f = &files[0];
 
@@ -207,6 +232,17 @@ mod tests {
         assert!(f.contains_key("group"));
         assert!(f.contains_key("absolute_path"));
         assert!(f.contains_key("times"));
+        // check times sub-dict
+        if let Value::Dictionary(d) = &f["times"] {  
+            let inner = d.read();  
+            assert!(inner.contains_key(&Value::String("modified".into())));
+            assert!(inner.contains_key(&Value::String("accessed".into())));
+            assert!(inner.contains_key(&Value::String("created".into())));
+            #[cfg(unix)]  
+            assert!(inner.contains_key(&Value::String("changed".into())));  
+        }  
+
+        // check modified string
         assert!(f.contains_key("modified"));
 
         // Check absolute_path

@@ -720,9 +720,10 @@ The **file.is_file** method checks if a path exists and is a file. If it doesn't
 
 ### file.list
 
-`file.list(path: str) -> List<Dict>`
+`file.list(path: str, dir_self: Optional<bool> = False) -> List<Dict>`
 
 The **file.list** method returns a list of files at the specified path. The path is relative to your current working directory and can be traversed with `../`.
+By default, when performing **file.list** against a directory, the directory itself will not be displayed, and only its actual contents will be displayed. To display the directory ALONGSIDE its contents, set `dir_self=True`
 This function also supports globbing with `*` for example:
 
 ```python
@@ -731,62 +732,63 @@ file.list("/etc/*ssh*") # List the contents of all dirs that have `ssh` in the n
 file.list("\\\\127.0.0.1\\c$\\Windows\\*.yml") # List files over UNC paths
 ```
 
-Each file is represented by a Dict type.
-Here is an example code snippet along with it's output:
+Here is a code snippet example, along with its output.
+Each file is returned as a Dict with their respective information.
+In this case, `dir_self=True` is set, so `/tmp/some_dir` is shown alongside the contents. Setting `dir_self=False` or leaving it unset would not show it.
 
 ```python
-print(file.list("/some_directory"))
+print(file.list("/tmp/some_dir", dir_self=True))
 ```
 
 ```json
 [
   {
-    "absolute_path": "/some_directory",
-    "file_name": "some_directory",
+    "absolute_path": "/tmp/some_dir",
+    "file_name": "some_dir",
     "group": "root",
-    "modified": "2026-07-09 18:24:44 UTC", // modification time represented as a UTC string
+    "modified": "2026-07-12 18:17:39 UTC",
     "owner": "root",
     "permissions": "40775",
-    "size": 4096,
-    "times": { // these are all the timestamps represented as UNIX epoch (seconds elapsed since Jan 1 1970)
-      "accessed": 1783621485,
-      "changed": 1783621484, // CHANGED TIME IS ONLY SUPPORTED IN UNIX SYSTEMS!
-      "created": 1783621124,
-      "modified": 1783621484
-    },
-    "type": "dir"
-  },
-  {
-    "absolute_path": "/some_directory/some_other_directory",
-    "file_name": "some_other_directory",
-    "group": "root",
-    "modified": "2026-07-09 18:18:47 UTC",
-    "owner": "root",
-    "permissions": "40775",
-    "size": 4096,
+    "size": 80,
     "times": {
-      "accessed": 1783621155,
-      "changed": 1783621127,
-      "created": 1783621127,
-      "modified": 1783621127
+      "accessed": 1783880431,
+      "changed": 1783880259, // changed is Unix-only (ctime)
+      "created": 1783880259,
+      "modified": 1783880259
     },
     "type": "dir"
   },
   {
-    "absolute_path": "/some_directory/some_file",
+    "absolute_path": "/tmp/some_dir/some_file",
     "file_name": "some_file",
     "group": "root",
-    "modified": "2026-07-09 18:18:50 UTC",
+    "modified": "2026-07-12 18:17:39 UTC",
     "owner": "root",
     "permissions": "100664",
-    "size": 0,
+    "size": 5,
     "times": {
-      "accessed": 1783621130,
-      "changed": 1783621130,
-      "created": 1783621130,
-      "modified": 1783621130
+      "accessed": -2208988800, // negative epoch, represents 2208988800 seconds before Jan 1 1970
+      "changed": 1783880431,
+      "created": 1783880259,
+      "modified": -2208988800
     },
     "type": "file"
+  },
+  {
+    "absolute_path": "/tmp/some_dir/some_other_dir",
+    "file_name": "some_other_dir",
+    "group": "root",
+    "modified": "1900-01-01 00:00:00 UTC",
+    "owner": "root",
+    "permissions": "40775",
+    "size": 40,
+    "times": {
+      "accessed": 1783880259,
+      "changed": 1783880259,
+      "created": 1783880259,
+      "modified": 1783880259
+    },
+    "type": "dir"
   }
 ]
 ```
