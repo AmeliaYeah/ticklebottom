@@ -723,7 +723,7 @@ The **file.is_file** method checks if a path exists and is a file. If it doesn't
 `file.list(path: str, dir_self: Optional<bool> = False) -> List<Dict>`
 
 The **file.list** method returns a list of files at the specified path. The path is relative to your current working directory and can be traversed with `../`.
-By default, when performing **file.list** against a directory, the directory itself will not be displayed, and only its actual contents will be displayed. To display the directory ALONGSIDE its contents, set `dir_self=True`
+If `path` is a directory, `dir_self` denotes whether to show the information of `path` itself in the `List<Dict>`. This field has no impact if `path` is not a directory.
 This function also supports globbing with `*` for example:
 
 ```python
@@ -734,16 +734,17 @@ file.list("\\\\127.0.0.1\\c$\\Windows\\*.yml") # List files over UNC paths
 
 Here is a code snippet example, along with its output.
 Each file is returned as a Dict with their respective information.
-In this case, `dir_self=True` is set, so `/tmp/some_dir` is shown alongside the contents. Setting `dir_self=False` or leaving it unset would not show it.
 
 ```python
 print(file.list("/tmp/some_dir", dir_self=True))
 ```
 
+**NOTE:** On systems without a specific time field being tracked, the field is ommitted. This means, for example, unix systems with `noatime` set will not have an `accessed` field visible in the `times` sub-Dict.
+
 ```json
 [
   {
-    "absolute_path": "/tmp/some_dir",
+    "absolute_path": "/tmp/some_dir", // if dir_self were set to False or unset, this Dict would not be present here
     "file_name": "some_dir",
     "group": "root",
     "modified": "2026-07-12 18:17:39 UTC",
