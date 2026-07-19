@@ -13,18 +13,21 @@ use eldritch_core::Value;
 #[cfg(unix)]
 use nix::unistd::{Gid, Group, Uid, User};
 #[cfg(feature = "stdlib")]
+use spin::RwLock;
+#[cfg(feature = "stdlib")]
 use std::fs;
 #[cfg(feature = "stdlib")]
 use std::path::Path;
 #[cfg(feature = "stdlib")]
 use std::sync::Arc;
-#[cfg(feature="stdlib")]
-use spin::RwLock;
 #[cfg(feature = "stdlib")]
 use std::time::UNIX_EPOCH;
 
 #[cfg(feature = "stdlib")]
-pub fn list(path: Option<String>, dir_self: Option<bool>) -> Result<Vec<BTreeMap<String, Value>>, String> {
+pub fn list(
+    path: Option<String>,
+    dir_self: Option<bool>,
+) -> Result<Vec<BTreeMap<String, Value>>, String> {
     let path = path.unwrap_or_else(|| {
         ::std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
@@ -42,7 +45,7 @@ pub fn list(path: Option<String>, dir_self: Option<bool>) -> Result<Vec<BTreeMap
 #[cfg(not(feature = "stdlib"))]
 pub fn list(
     _path: Option<alloc::string::String>,
-    dir_self: Option<bool>
+    dir_self: Option<bool>,
 ) -> Result<
     alloc::vec::Vec<alloc::collections::BTreeMap<alloc::string::String, eldritch_core::Value>>,
     alloc::string::String,
@@ -66,7 +69,7 @@ fn list_impl(path: String, dir_self: bool) -> AnyhowResult<Vec<BTreeMap<String, 
                 if !path_buf.is_dir() || dir_self {
                     final_res.push(create_dict_from_file(&path_buf)?);
                 }
-                
+
                 // for dir, show subcontents
                 if path_buf.is_dir() {
                     for entry in fs::read_dir(&path_buf)? {
@@ -86,21 +89,28 @@ fn list_impl(path: String, dir_self: bool) -> AnyhowResult<Vec<BTreeMap<String, 
 
 // get the timestamps of a metadata object and return it as a dictionary
 #[cfg(feature = "stdlib")]
-fn get_times_dict(metadata: std::fs::Metadata, mtime: std::io::Result<std::time::SystemTime>) -> Value {
+fn get_times_dict(
+    metadata: std::fs::Metadata,
+    mtime: std::io::Result<std::time::SystemTime>,
+) -> Value {
     // create dictionary for times data
     let mut times: BTreeMap<Value, Value> = BTreeMap::new();
 
     // add changed time (it's already in epoch format) if we're in unix
-    #[cfg(unix)] {
+    #[cfg(unix)]
+    {
         use std::os::unix::fs::MetadataExt;
-        times.insert(Value::String("changed".to_string()), Value::Int(metadata.ctime()));
+        times.insert(
+            Value::String("changed".to_string()),
+            Value::Int(metadata.ctime()),
+        );
     }
 
     // add time information
     let timestamps = [
         ("modified", mtime),
         ("created", metadata.created()),
-        ("accessed", metadata.accessed())
+        ("accessed", metadata.accessed()),
     ];
     for timestamp_req in timestamps {
         // if getting the timestamp was successful, add it
@@ -108,13 +118,13 @@ fn get_times_dict(metadata: std::fs::Metadata, mtime: std::io::Result<std::time:
             // convert timestamp to epoch
             let secs = match timestamp.duration_since(UNIX_EPOCH) {
                 Ok(duration) => duration.as_secs() as i64,
-                Err(err) => -(err.duration().as_secs() as i64)
+                Err(err) => -(err.duration().as_secs() as i64),
             };
 
             // add timestamp to dict
             times.insert(Value::String(timestamp_req.0.to_string()), Value::Int(secs));
         }
-    };
+    }
 
     // insert times section to the dictionary
     return Value::Dictionary(Arc::new(RwLock::new(times)));
@@ -233,14 +243,14 @@ mod tests {
         assert!(f.contains_key("absolute_path"));
         assert!(f.contains_key("times"));
         // check times sub-dict
-        if let Value::Dictionary(d) = &f["times"] {  
-            let inner = d.read();  
+        if let Value::Dictionary(d) = &f["times"] {
+            let inner = d.read();
             assert!(inner.contains_key(&Value::String("modified".into())));
             assert!(inner.contains_key(&Value::String("accessed".into())));
             assert!(inner.contains_key(&Value::String("created".into())));
-            #[cfg(unix)]  
-            assert!(inner.contains_key(&Value::String("changed".into())));  
-        }  
+            #[cfg(unix)]
+            assert!(inner.contains_key(&Value::String("changed".into())));
+        }
 
         // check modified string
         assert!(f.contains_key("modified"));

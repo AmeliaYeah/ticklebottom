@@ -158,7 +158,11 @@ pub trait FileLibrary {
     ///
     /// **Errors**
     /// - Returns an error string if listing fails.
-    fn list(&self, path: Option<String>, dir_self: Option<bool>) -> Result<Vec<BTreeMap<String, Value>>, String>;
+    fn list(
+        &self,
+        path: Option<String>,
+        dir_self: Option<bool>,
+    ) -> Result<Vec<BTreeMap<String, Value>>, String>;
 
     #[eldritch_method]
     /// Lists all named pipes on the system.

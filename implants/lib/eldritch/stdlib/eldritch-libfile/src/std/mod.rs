@@ -78,7 +78,11 @@ impl FileLibrary for StdFileLibrary {
         is_file_impl::is_file(path)
     }
 
-    fn list(&self, path: Option<String>, dir_self: Option<bool>) -> Result<Vec<BTreeMap<String, Value>>, String> {
+    fn list(
+        &self,
+        path: Option<String>,
+        dir_self: Option<bool>,
+    ) -> Result<Vec<BTreeMap<String, Value>>, String> {
         list_impl::list(path, dir_self)
     }
 

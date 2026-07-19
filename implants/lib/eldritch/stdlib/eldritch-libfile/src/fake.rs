@@ -172,7 +172,11 @@ impl FileLibrary for FileLibraryFake {
         }
     }
 
-    fn list(&self, path: Option<String>, dir_self: Option<bool>) -> Result<Vec<BTreeMap<String, Value>>, String> {
+    fn list(
+        &self,
+        path: Option<String>,
+        dir_self: Option<bool>,
+    ) -> Result<Vec<BTreeMap<String, Value>>, String> {
         let path = path.unwrap_or_else(|| "/".to_string());
         let mut root = self.root.lock();
         let parts = Self::normalize_path(&path);
