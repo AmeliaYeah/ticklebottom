@@ -24,10 +24,7 @@ use std::sync::Arc;
 use std::time::UNIX_EPOCH;
 
 #[cfg(feature = "stdlib")]
-pub fn list(
-    path: Option<String>,
-    dir_self: Option<bool>,
-) -> Result<Vec<BTreeMap<String, Value>>, String> {
+pub fn list(path: Option<String>) -> Result<Vec<BTreeMap<String, Value>>, String> {
     let path = path.unwrap_or_else(|| {
         ::std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
@@ -39,13 +36,12 @@ pub fn list(
                 }
             })
     });
-    list_impl(path, dir_self.unwrap_or(false)).map_err(|e| e.to_string())
+    list_impl(path).map_err(|e| e.to_string())
 }
 
 #[cfg(not(feature = "stdlib"))]
 pub fn list(
     _path: Option<alloc::string::String>,
-    dir_self: Option<bool>,
 ) -> Result<
     alloc::vec::Vec<alloc::collections::BTreeMap<alloc::string::String, eldritch_core::Value>>,
     alloc::string::String,
@@ -54,7 +50,7 @@ pub fn list(
 }
 
 #[cfg(feature = "stdlib")]
-fn list_impl(path: String, dir_self: bool) -> AnyhowResult<Vec<BTreeMap<String, Value>>> {
+fn list_impl(path: String) -> AnyhowResult<Vec<BTreeMap<String, Value>>> {
     use glob::glob;
 
     let mut final_res = Vec::new();
@@ -63,14 +59,9 @@ fn list_impl(path: String, dir_self: bool) -> AnyhowResult<Vec<BTreeMap<String, 
     for entry in glob(&path)? {
         match entry {
             Ok(path_buf) => {
-                // if we're not a directory (file), show self
-                // OR
-                // if we are a directory, only show self if the flag is set to true
-                if !path_buf.is_dir() || dir_self {
-                    final_res.push(create_dict_from_file(&path_buf)?);
-                }
-
-                // for dir, show subcontents
+                // show information about the directory/file
+                // if it is a directory, show subcontents
+                final_res.push(create_dict_from_file(&path_buf)?);
                 if path_buf.is_dir() {
                     for entry in fs::read_dir(&path_buf)? {
                         let entry = entry?;
@@ -89,10 +80,7 @@ fn list_impl(path: String, dir_self: bool) -> AnyhowResult<Vec<BTreeMap<String, 
 
 // get the timestamps of a metadata object and return it as a dictionary
 #[cfg(feature = "stdlib")]
-fn get_times_dict(
-    metadata: std::fs::Metadata,
-    mtime: std::io::Result<std::time::SystemTime>,
-) -> Value {
+fn get_times_dict(metadata: std::fs::Metadata) -> Value {
     // create dictionary for times data
     let mut times: BTreeMap<Value, Value> = BTreeMap::new();
 
@@ -108,7 +96,7 @@ fn get_times_dict(
 
     // add time information
     let timestamps = [
-        ("modified", mtime),
+        ("modified", metadata.modified()),
         ("created", metadata.created()),
         ("accessed", metadata.accessed()),
     ];
@@ -116,13 +104,12 @@ fn get_times_dict(
         // if getting the timestamp was successful, add it
         if let Ok(timestamp) = timestamp_req.1 {
             // convert timestamp to epoch
-            let secs = match timestamp.duration_since(UNIX_EPOCH) {
-                Ok(duration) => duration.as_secs() as i64,
-                Err(err) => -(err.duration().as_secs() as i64),
-            };
-
-            // add timestamp to dict
-            times.insert(Value::String(timestamp_req.0.to_string()), Value::Int(secs));
+            if let Ok(ts) = jiff::Timestamp::try_from(timestamp) {
+                times.insert(
+                    Value::String(timestamp_req.0.to_string()),
+                    Value::Int(ts.as_second()),
+                );
+            }
         }
     }
 
@@ -207,7 +194,7 @@ fn create_dict_from_file(path: &Path) -> AnyhowResult<BTreeMap<String, Value>> {
     }
 
     // Add Time information
-    dict.insert("times".to_string(), get_times_dict(metadata, mtime));
+    dict.insert("times".to_string(), get_times_dict(metadata));
 
     Ok(dict)
 }
@@ -217,23 +204,23 @@ fn create_dict_from_file(path: &Path) -> AnyhowResult<BTreeMap<String, Value>> {
 mod tests {
     use super::*;
     use regex::bytes::Regex;
-    use tempfile::NamedTempFile;
-
-    #[test]
-    fn test_list_includes_self_when_dir() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("a.txt"), b"hi").unwrap();
-        let files = list(Some(dir.path().to_string_lossy().to_string()), Some(true)).unwrap();
-        assert!(files.len() >= 2); // self + child
-    }
+    use tempfile::{NamedTempFile, TempDir};
 
     #[test]
     fn test_list_owner_group() {
+        // check if listing a directory shows itself
+        let tmp_dir = TempDir::new().unwrap();
+        let tmp_dir_path = tmp_dir.path().to_string_lossy().to_string();
+        let tmp_dir_files = list(Some(tmp_dir_path)).unwrap();
+        assert_eq!(tmp_dir_files.len(), 1);
+
+        // create regular file
         let tmp = NamedTempFile::new().unwrap();
         let path = tmp.path().to_string_lossy().to_string();
-
-        let files = list(Some(path), None).unwrap();
+        let files = list(Some(path)).unwrap();
         assert_eq!(files.len(), 1);
+
+        // perform remaining tests
         let f = &files[0];
 
         assert!(f.contains_key("owner"));

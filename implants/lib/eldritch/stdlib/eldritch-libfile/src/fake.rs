@@ -490,7 +490,7 @@ mod tests {
         assert_eq!(file.read("/tmp/test.txt".into()).unwrap(), "hello");
 
         // List
-        let items = file.list(Some("/home/user".into()), None).unwrap();
+        let items = file.list(Some("/home/user".into())).unwrap();
         assert!(
             items
                 .iter()

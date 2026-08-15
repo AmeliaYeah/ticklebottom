@@ -723,7 +723,6 @@ The **file.is_file** method checks if a path exists and is a file. If it doesn't
 `file.list(path: str, dir_self: Optional<bool> = False) -> List<Dict>`
 
 The **file.list** method returns a list of files at the specified path. The path is relative to your current working directory and can be traversed with `../`.
-If `path` is a directory, `dir_self` denotes whether to show the information of `path` itself in the `List<Dict>`. This field has no impact if `path` is not a directory.
 This function also supports globbing with `*` for example:
 
 ```python
@@ -736,7 +735,7 @@ Here is a code snippet example, along with its output.
 Each file is returned as a Dict with their respective information.
 
 ```python
-print(file.list("/tmp/some_dir", dir_self=True))
+print(file.list("/tmp/some_dir"))
 ```
 
 **NOTE:** On systems without a specific time field being tracked, the field is ommitted. This means, for example, unix systems with `noatime` set will not have an `accessed` field visible in the `times` sub-Dict.

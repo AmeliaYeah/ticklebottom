@@ -142,7 +142,6 @@ pub trait FileLibrary {
     ///
     /// **Parameters**
     /// - `path` (`Option<str>`): The directory path or glob pattern. Defaults to current working directory.
-    /// - `dir_self` (`Option<bool>`): Include self if file list target is a directory. Defaults to false.
     ///
     /// **Returns**
     /// - `List<Dict>`: A list of dictionaries containing file details:
@@ -158,11 +157,7 @@ pub trait FileLibrary {
     ///
     /// **Errors**
     /// - Returns an error string if listing fails.
-    fn list(
-        &self,
-        path: Option<String>,
-        dir_self: Option<bool>,
-    ) -> Result<Vec<BTreeMap<String, Value>>, String>;
+    fn list(&self, path: Option<String>) -> Result<Vec<BTreeMap<String, Value>>, String>;
 
     #[eldritch_method]
     /// Lists all named pipes on the system.
