@@ -720,7 +720,7 @@ The **file.is_file** method checks if a path exists and is a file. If it doesn't
 
 ### file.list
 
-`file.list(path: str, dir_self: Optional<bool> = False) -> List<Dict>`
+`file.list(path: str) -> List<Dict>`
 
 The **file.list** method returns a list of files at the specified path. The path is relative to your current working directory and can be traversed with `../`.
 This function also supports globbing with `*` for example:
