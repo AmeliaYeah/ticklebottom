@@ -198,14 +198,12 @@ fn create_dict_from_file(path: &Path) -> AnyhowResult<BTreeMap<String, Value>> {
         Value::String(abs_path.to_string_lossy().to_string()),
     );
 
-    // cache modified time, then add it to both epoch and as a stringified version
-    let mtime = metadata.modified();
-
-    // turn modified time into a stringified version
-    if let Ok(modified) = mtime {
-        let dt: chrono::DateTime<chrono::Utc> = modified.into();
-        let formatted = dt.format("%Y-%m-%d %H:%M:%S UTC").to_string();
-        dict.insert("modified".to_string(), Value::String(formatted));
+    // Times
+    if let Ok(modified) = metadata.modified() {
+        if let Ok(ts) = jiff::Timestamp::try_from(modified) {
+            let formatted = ts.strftime("%Y-%m-%d %H:%M:%S UTC").to_string();
+            dict.insert("modified".to_string(), Value::String(formatted));
+        }
     }
 
     // Add Time information
