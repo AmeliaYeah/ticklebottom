@@ -732,18 +732,18 @@ file.list("\\\\127.0.0.1\\c$\\Windows\\*.yml") # List files over UNC paths
 ```
 
 Here is a code snippet example, along with its output.
-Each file is returned as a Dict with their respective information.
+Each file is returned as a Dict with their respective information. Note that the directory itself (in this example, `/tmp/some_dir`) will also be listed with the respective information.
 
 ```python
 print(file.list("/tmp/some_dir"))
 ```
 
-**NOTE:** On systems without a specific time field being tracked, the field is ommitted. This means, for example, unix systems with `noatime` set will not have an `accessed` field visible in the `times` sub-Dict.
+**NOTE:** On systems without a specific time field being tracked, the field is omitted. This means, for example, unix systems with `noatime` set will not have an `accessed` field visible in the `times` sub-Dict.
 
 ```json
 [
   {
-    "absolute_path": "/tmp/some_dir", // if dir_self were set to False or unset, this Dict would not be present here
+    "absolute_path": "/tmp/some_dir",
     "file_name": "some_dir",
     "group": "root",
     "modified": "2026-07-12 18:17:39 UTC",
